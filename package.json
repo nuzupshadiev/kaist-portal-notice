@@ -1,7 +1,11 @@
 {
+  "type": "module",
   "dependencies": {
     "axios": "^1.6.2",
     "cheerio": "^1.0.0-rc.12",
-    "node-telegram-bot-api": "^0.64.0"
+    "google-translate-api": "^2.3.0",
+    "node-telegram-bot-api": "^0.64.0",
+    "translate": "^2.0.2"
   }
+  
 }
