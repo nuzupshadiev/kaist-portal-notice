@@ -33,6 +33,7 @@ function loadPostsFromLocalStorage() {
   const previousPostsFromLS = localstorage.getItem('previousPosts');
   if (previousPostsFromLS) {
     previousPosts = JSON.parse(previousPostsFromLS);
+    console.log('previousPosts loaded from local storage successfully.');
   }
 }
 function writeToLocalStorage(data) {
@@ -58,6 +59,7 @@ async function loadChatIdsFromGoogleSheets() {
       return row._rawData[6];
     });
     chatIds = newChatIds;
+    console.log('chatIds loaded from Google Sheets successfully.');
   } catch (err) {
     console.error('Error loading chatIds from Google Sheets:', err.message);
   }
