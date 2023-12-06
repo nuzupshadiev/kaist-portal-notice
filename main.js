@@ -1,6 +1,17 @@
 import TelegramBot from 'node-telegram-bot-api';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { GoogleSpreadsheet } from 'google-spreadsheet';
+import { JWT } from 'google-auth-library';
+import credentials from './credentials.js';
+const sheetId = '1leT0uuabipyv1MrSa90zfHZ_hMhgIVe4HSO2hxNd_wE';
+const serviceAccountAuth = new JWT({
+  email: credentials.client_email,
+  key: credentials.private_key,
+  scopes: [
+    'https://www.googleapis.com/auth/spreadsheets',
+  ],
+});
 const token = '6574074066:AAFj5_XQsRiTMqLweKO8tQjXPETdRI2kI4s';
 const international_url = 'https://portal.kaist.ac.kr/board/list.brd?boardId=International';
 const student_notice_url = 'https://portal.kaist.ac.kr/board/list.brd?boardId=student_notice';
@@ -22,6 +33,41 @@ function isDuplicate(obj1, obj2) {
     obj1.link === obj2.link &&
     obj1.date === obj2.date
   );
+}
+async function writeToGoogleSheets(data) {
+  const doc = new GoogleSpreadsheet(sheetId, serviceAccountAuth);
+
+  try {
+    await doc.loadInfo();
+    const sheet = doc.sheetsByIndex[0];
+    await sheet.addRow(data);
+    console.log('Data written to Google Sheets successfully.');
+  } catch (err) {
+    console.error('Error writing to Google Sheets:', err.message);
+  }
+}
+async function queryUserIds() {
+  const doc = new GoogleSpreadsheet(sheetId, serviceAccountAuth);
+
+  try {
+    await doc.loadInfo();
+    const sheet = doc.sheetsByIndex[0];
+
+    await sheet.loadCells();
+
+    const numRows = sheet.rowCount;
+    const userIds = [];
+
+    for (let i = 1; i < numRows; i++) {
+      const cell = sheet.getCell(i, 6);
+      userIds.push(cell.value);
+    }
+
+    return userIds;
+  } catch (err) {
+    console.error('Error querying Google Sheets:', err.message);
+    throw err;
+  }
 }
 
 // function handleTranslate(text) {
@@ -178,7 +224,16 @@ bot.on('message', (msg) => {
   const user = msg.from;
   // send a message to the chat acknowledging receipt of their message
   if (!chatIds.includes(chatId)) {
+    queryUserIds()
+    .then(idsss => {
+      console.log('List of userIds:', idsss);
+    })
+    .catch(error => {
+      console.error('Error:', error.message);
+    });
     chatIds.push(chatId);
+    let userData = user
+    userData['chatId'] = chatId
     let name = `${user.first_name} ${user.last_name}`;
     const greetingMessage = `Hello ${name}! Welcome to KAIST International Portal Bot! You will be notified of any new posts from the portal. Thank you for joining our bot!`;
     bot.sendMessage(chatId, greetingMessage)
@@ -186,6 +241,7 @@ bot.on('message', (msg) => {
     .catch((error) => {
       console.error(`sendNotification error: ${error.message}`);
     })
+    writeToGoogleSheets(userData)
   }
   if (msg.text && msg.text.toLowerCase() === '/start') {
     checkStartPosts(chatId)
