@@ -13,7 +13,7 @@ const serviceAccountAuth = new JWT({
     'https://www.googleapis.com/auth/spreadsheets',
   ],
 });
-const token = '6574074066:AAFj5_XQsRiTMqLweKO8tQjXPETdRI2kI4s';
+const token = '6865393313:AAGde_XCohrYs2GvIYuqKFVjmJRHJhAMdG8';
 const international_url = 'https://portal.kaist.ac.kr/board/list.brd?boardId=International';
 const student_notice_url = 'https://portal.kaist.ac.kr/board/list.brd?boardId=student_notice';
 const internship_notice_url = 'https://portal.kaist.ac.kr/board/list.brd?boardId=leadership_intern_counseling&lang_knd=en'
