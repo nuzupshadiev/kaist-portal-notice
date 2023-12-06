@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import credentials from './credentials.js';
+import {LocalStorage} from 'node-localstorage';
 const sheetId = '1leT0uuabipyv1MrSa90zfHZ_hMhgIVe4HSO2hxNd_wE';
 const serviceAccountAuth = new JWT({
   email: credentials.client_email,
@@ -24,9 +25,21 @@ const headers = {
 };
 
 const bot = new TelegramBot(token, {polling: true});
-const previousPosts = [];
+const localstorage = new LocalStorage('./scratch');
+let previousPosts = [];
 let chatIds = [];
 
+function loadPostsFromLocalStorage() {
+  const previousPostsFromLS = localstorage.getItem('previousPosts');
+  if (previousPostsFromLS) {
+    previousPosts = JSON.parse(previousPostsFromLS);
+  }
+}
+function writeToLocalStorage(data) {
+  previousPosts.push(...data);
+  localstorage.setItem('previousPosts', JSON.stringify(previousPosts));
+  console.log('previousPosts written to local storage successfully.');
+}
 function isDuplicate(obj1, obj2) {
   return (
     obj1.title === obj2.title &&
@@ -45,7 +58,6 @@ async function loadChatIdsFromGoogleSheets() {
       return row._rawData[6];
     });
     chatIds = newChatIds;
-    console.log('ChatIds updated from Google Sheets:', chatIds);
   } catch (err) {
     console.error('Error loading chatIds from Google Sheets:', err.message);
   }
@@ -80,22 +92,17 @@ function extractPosts(html) {
       const title = titleElement.text().trim();
       const link = titleElement.attr('href');
       const date = $(element).find('td:last-child label').text().trim();
-
       posts.push({
           title,
           link,
           date,
       });
   });
-  posts.sort((a, b) => new Date(b.date) - new Date(a.date));
-  return posts;
+  return posts.reverse();
 }
 
 function sendNotification(message, chatId, retryCount = 0) {
   const escapedString = message
-  .replace(/&/g, "&amp;")
-  .replace(/</g, "&lt;")
-  .replace(/>/g, "&gt;");
   try {
     bot.sendMessage(chatId, escapedString, { parse_mode: "Markdown" })
       .then((response) => {
@@ -136,7 +143,7 @@ function checkForNewPosts() {
           for (const post of newPosts) {
             SendNotificationEveryone(`New post from International Community:\n*${post.title}*\n(https://portal.kaist.ac.kr${post.link})\n${post.date}`);
           }
-          previousPosts.push(...newPosts);
+          writeToLocalStorage(newPosts);
         }
     }
   })
@@ -148,8 +155,9 @@ function checkStartPosts(chatId) {
     const html = response.data;
     const currentPosts = extractPosts(html);
     if (currentPosts.length > 0) {
-        for(let i = 0; i < Math.min(5, currentPosts.length); i++){
-          const post = currentPosts[i]
+        const startIdx = Math.max(0, currentPosts.length - 5);
+        for (let i = startIdx; i < currentPosts.length; i++) {
+          const post = currentPosts[i];
           sendNotification(`New post from International Community:\n*${post.title}*\n(https://portal.kaist.ac.kr${post.link})\n${post.date}`, chatId);
         }
     }
@@ -164,6 +172,7 @@ bot.onText(/\/echo (.+)/, (msg, match) => {
 });
 
 loadChatIdsFromGoogleSheets();
+loadPostsFromLocalStorage()
 
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
